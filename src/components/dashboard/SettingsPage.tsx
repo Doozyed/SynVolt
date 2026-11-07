@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { Credits } from './Credits';
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { colors } from '../../config/theme';
@@ -726,6 +727,8 @@ export function SettingsPage({ onBack }: SettingsPageProps) {
               <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.textWhite, marginBottom: 8 }}>General</h2>
               <p style={{ fontSize: 13, color: colors.textMuted }}>Configure workspace behavior</p>
             </div>
+
+            <Credits />
 
             <SettingRow label="Go through walkthrough" description="See the guided tour of SynVolt again">
               <OptionButton label="Start" selected={false} accentColor={accent.primary}

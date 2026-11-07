@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, Cloud, FolderOpen, Play, Settings, ShieldAlert, Terminal } from 'lucide-react';
+import { Credits } from './Credits';
 
 const STORAGE_KEY = 'synvolt-onboarding-v1';
 const steps = [
@@ -94,7 +95,8 @@ export function FirstRunGuide() {
         <div className="onboarding-icon"><Icon size={22} strokeWidth={1.7} /></div>
         <div className="onboarding-eyebrow">{page < 0 ? 'PLEASE READ' : `GETTING STARTED · ${page + 1} OF ${steps.length}`}</div>
         <h1 id="onboarding-title">{step?.title ?? 'Before you begin'}</h1>
-        <p id="onboarding-description">{step?.text ?? <>This app is a reskin of Synapse Z. You must still own a Synapse Z license for this application to work. The project is still new, so please expect bugs. If you have bug reports, please DM <strong>doozyed_d</strong> on Discord.</>}</p>
+        <p id="onboarding-description">{step?.text ?? 'This app is a reskin of Synapse Z. You must still own a Synapse Z license for this application to work.'}</p>
+        {page < 0 && <Credits />}
       </div>
       {page < 0 ? <>
         <div className="onboarding-reading" aria-live="polite">{seconds > 0 ? `Please take a moment to read · ${seconds}s` : 'You can continue when you are ready.'}</div>

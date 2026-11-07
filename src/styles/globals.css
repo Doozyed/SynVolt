@@ -357,3 +357,11 @@ a {
 .patching-card .patching-error { margin: -6px 0 12px; }
 @keyframes patching-spin { to { transform: rotate(360deg); } } @keyframes patching-dot { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } } @keyframes patching-progress { from { transform: translateX(-110%); } to { transform: translateX(290%); } }
 @media (prefers-reduced-motion: reduce) { .patching-ring, .patching-dots span, .patching-bar div { animation: none; } .patching-dots span { opacity: 1; } }
+
+.credits { padding: 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg-surface); color: var(--text-main); }
+.credits-title { display: block; font-size: 13px; font-weight: 600; margin-bottom: 9px; }
+.credits-list { display: grid; gap: 4px; color: var(--text-muted); font-size: 12px; line-height: 1.45; }
+.credits-list span { color: var(--text-main); }
+.credits-link { display: inline-block; margin-top: 10px; padding: 0; border: 0; background: transparent; color: var(--text-main); font: inherit; font-size: 12px; text-align: left; text-decoration: underline; cursor: pointer; }
+.credits-link:focus-visible { outline: 2px solid var(--text-main); outline-offset: 3px; }
+.onboarding-dialog .credits { margin-top: 14px; }
