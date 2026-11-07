@@ -217,7 +217,7 @@ export function WelcomePage({ onToggleTerminal, onOpenSettings, onOpenFile, onNe
       const result = await invoke<{ path: string; launched: boolean; cancelled: boolean }>('run_synz_installer');
       const filename = result.path.split(/[\\/]/).pop();
       setInstallerOpened(result.launched);
-      setInstallerMessage(result.launched ? 'Click Install in SynZ, then choose Hide while patching.' : `Administrator request cancelled. Saved in Downloads: ${filename}`);
+      setInstallerMessage(result.launched ? 'Click Install in SynZ, then choose Hide while patching.' : `Setup was cancelled. Saved in Downloads: ${filename}`);
     } catch (error) {
       setInstallerMessage(String(error));
     } finally {
@@ -230,7 +230,7 @@ export function WelcomePage({ onToggleTerminal, onOpenSettings, onOpenFile, onNe
       const hidden = await invoke<boolean>('hide_synapse_launcher');
       if (!hidden) { setInstallerMessage('Could not hide SynZ. Keep its window open and try again.'); return; }
       window.dispatchEvent(new Event('synvolt-manual-patching-started'));
-    } catch { setInstallerMessage('Could not hide SynZ. Keep its window open and try again.'); }
+    } catch (error) { setInstallerMessage(String(error)); }
   };
 
   useEffect(() => {

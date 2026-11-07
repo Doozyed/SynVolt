@@ -154,7 +154,8 @@ fn request_installer_elevation(path: &std::path::Path, owner: isize) -> Result<O
     use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
     let executable: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-    let verb: Vec<u16> = "runas".encode_utf16().chain(Some(0)).collect();
+    let verb = if cfg!(synvolt_standard) { "open" } else { "runas" };
+    let verb: Vec<u16> = verb.encode_utf16().chain(Some(0)).collect();
     let directory: Vec<u16> = path.parent().ok_or("Invalid installer location")?.as_os_str().encode_wide().chain(Some(0)).collect();
     unsafe {
         let com_initialized = CoInitializeEx(std::ptr::null(), (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32) >= 0;

@@ -1,13 +1,19 @@
-use std::sync::{Mutex, atomic::{AtomicBool, Ordering}};
-use std::path::{Path, PathBuf};
 use std::os::windows::ffi::OsStrExt;
+use std::path::{Path, PathBuf};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Mutex,
+};
 use sysinfo::{ProcessesToUpdate, System};
+#[cfg(not(synvolt_standard))]
 use tauri::Manager;
-use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM, CloseHandle};
-use windows_sys::Win32::System::Threading::{CreateProcessW, PROCESS_INFORMATION, STARTUPINFOW, STARTF_USESHOWWINDOW};
+use windows_sys::Win32::Foundation::{CloseHandle, BOOL, HWND, LPARAM};
+use windows_sys::Win32::System::Threading::{
+    CreateProcessW, PROCESS_INFORMATION, STARTF_USESHOWWINDOW, STARTUPINFOW,
+};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetWindowTextW, GetWindowThreadProcessId, IsWindow, IsWindowVisible, SetForegroundWindow, ShowWindow,
-    SW_HIDE, SW_SHOWNA,
+    EnumWindows, GetWindowTextW, GetWindowThreadProcessId, IsWindow, IsWindowVisible,
+    SetForegroundWindow, ShowWindow, SW_HIDE, SW_SHOWNA,
 };
 
 #[derive(Default)]
@@ -38,11 +44,18 @@ unsafe extern "system" fn find_launcher(hwnd: HWND, arg: LPARAM) -> BOOL {
 
 fn is_launcher_window_title(title: &str) -> bool {
     let title = title.trim().to_ascii_lowercase();
-    title == "z" || title.contains("synapse z") || title.contains("synapsez") || title.contains("synz")
+    title == "z"
+        || title.contains("synapse z")
+        || title.contains("synapsez")
+        || title.contains("synz")
 }
 
 fn is_launcher_process_name(name: &str) -> bool {
-    is_launcher_filename(name) || matches!(name.to_ascii_lowercase().as_str(), "synapse z.exe" | "synapsez.exe" | "synz.exe")
+    is_launcher_filename(name)
+        || matches!(
+            name.to_ascii_lowercase().as_str(),
+            "synapse z.exe" | "synapsez.exe" | "synz.exe"
+        )
 }
 
 fn launcher_pids() -> Vec<u32> {
@@ -74,15 +87,21 @@ fn hide_windows(state: &LauncherWindows, search: Search) -> Result<bool, String>
     tracked.retain(|(window, pid)| unsafe {
         let hwnd = *window as HWND;
         let mut owner = 0;
-        IsWindow(hwnd) != 0 && GetWindowThreadProcessId(hwnd, &mut owner) != 0
-            && owner == *pid && search.pids.contains(pid)
+        IsWindow(hwnd) != 0
+            && GetWindowThreadProcessId(hwnd, &mut owner) != 0
+            && owner == *pid
+            && search.pids.contains(pid)
     });
     let mut found_window = false;
     let mut all_hidden = true;
     for (window, pid) in search.windows {
         found_window = true;
         let was_visible = unsafe { IsWindowVisible(window as HWND) != 0 };
-        if was_visible { unsafe { ShowWindow(window as HWND, SW_HIDE); } }
+        if was_visible {
+            unsafe {
+                ShowWindow(window as HWND, SW_HIDE);
+            }
+        }
         let hidden = unsafe { IsWindowVisible(window as HWND) == 0 };
         all_hidden &= hidden;
         if was_visible && hidden && !tracked.contains(&(window, pid)) {
@@ -101,30 +120,51 @@ pub(crate) fn helper_show(state: &LauncherWindows) -> bool {
     let foreground = search.windows.first().copied();
     let shown = show_windows(state, search);
     if shown {
-        if let Some((window, _)) = foreground { unsafe { SetForegroundWindow(window as HWND); } }
+        if let Some((window, _)) = foreground {
+            unsafe {
+                SetForegroundWindow(window as HWND);
+            }
+        }
     }
     shown
 }
 
 #[tauri::command]
-pub async fn hide_synapse_launcher(app: tauri::AppHandle, state: tauri::State<'_, LauncherWindows>) -> Result<bool, String> {
-    if hide_launcher_windows(&state)? { return Ok(true); }
-    if launcher_pids().is_empty() { return Ok(false); }
-    if !request_elevated_window_action(&app, "hide").await? { return Ok(false); }
+pub async fn hide_synapse_launcher(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, LauncherWindows>,
+) -> Result<bool, String> {
+    if hide_launcher_windows(&state)? {
+        return Ok(true);
+    }
+    if launcher_pids().is_empty() {
+        return Ok(false);
+    }
+    if !request_elevated_window_action(&app, "hide").await? {
+        return Ok(false);
+    }
     let search = find_windows();
     if let Ok(mut tracked) = state.windows.lock() {
         for (window, pid) in &search.windows {
-            if unsafe { IsWindowVisible(*window as HWND) == 0 } && !tracked.contains(&(*window, *pid)) {
+            if unsafe { IsWindowVisible(*window as HWND) == 0 }
+                && !tracked.contains(&(*window, *pid))
+            {
                 tracked.push((*window, *pid));
             }
         }
     }
-    Ok(!search.windows.is_empty() && search.windows.iter().all(|(window, _)| unsafe { IsWindowVisible(*window as HWND) == 0 }))
+    Ok(!search.windows.is_empty()
+        && search
+            .windows
+            .iter()
+            .all(|(window, _)| unsafe { IsWindowVisible(*window as HWND) == 0 }))
 }
 
 pub(crate) fn is_launcher_filename(name: &str) -> bool {
     let name = name.to_ascii_lowercase();
-    if name == "syninstallerv2.exe" { return true; }
+    if name == "syninstallerv2.exe" {
+        return true;
+    }
     name.strip_prefix("syninstallerv2 (")
         .and_then(|suffix| suffix.strip_suffix(").exe"))
         .is_some_and(|number| !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit()))
@@ -133,8 +173,13 @@ pub(crate) fn is_launcher_filename(name: &str) -> bool {
 fn find_launcher_executable() -> Option<PathBuf> {
     let local = std::env::var_os("LOCALAPPDATA").map(PathBuf::from)?;
     let profile = std::env::var_os("USERPROFILE").map(PathBuf::from)?;
-    let mut dirs = vec![local.join("Synapse Z"), local.join("Synapse Z").join("bin"),
-        local.join("Programs").join("Synapse Z"), profile.join("Downloads"), profile.join("Desktop")];
+    let mut dirs = vec![
+        local.join("Synapse Z"),
+        local.join("Synapse Z").join("bin"),
+        local.join("Programs").join("Synapse Z"),
+        profile.join("Downloads"),
+        profile.join("Desktop"),
+    ];
     for variable in ["APPDATA", "ProgramFiles", "ProgramFiles(x86)"] {
         if let Some(root) = std::env::var_os(variable) {
             dirs.push(PathBuf::from(root).join("Synapse Z"));
@@ -149,7 +194,10 @@ fn find_launcher_executable() -> Option<PathBuf> {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().into_owned();
                 if is_launcher_filename(&name) && entry.path().is_file() {
-                    let modified = entry.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH);
+                    let modified = entry
+                        .metadata()
+                        .and_then(|m| m.modified())
+                        .unwrap_or(std::time::UNIX_EPOCH);
                     candidates.push((modified, entry.path()));
                 }
             }
@@ -161,16 +209,38 @@ fn find_launcher_executable() -> Option<PathBuf> {
 
 fn spawn_launcher(path: &Path, hidden: bool) -> Result<(), String> {
     let executable: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-    let directory: Vec<u16> = path.parent().ok_or("Invalid launcher location")?.as_os_str().encode_wide().chain(Some(0)).collect();
+    let directory: Vec<u16> = path
+        .parent()
+        .ok_or("Invalid launcher location")?
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
     unsafe {
         let mut startup: STARTUPINFOW = std::mem::zeroed();
         startup.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
         startup.dwFlags = STARTF_USESHOWWINDOW;
-        startup.wShowWindow = if hidden { SW_HIDE as u16 } else { SW_SHOWNA as u16 };
+        startup.wShowWindow = if hidden {
+            SW_HIDE as u16
+        } else {
+            SW_SHOWNA as u16
+        };
         let mut process: PROCESS_INFORMATION = std::mem::zeroed();
-        let success = CreateProcessW(executable.as_ptr(), std::ptr::null_mut(), std::ptr::null(), std::ptr::null(), 0, 0,
-            std::ptr::null(), directory.as_ptr(), &startup, &mut process);
-        if success == 0 { return Err(std::io::Error::last_os_error().to_string()); }
+        let success = CreateProcessW(
+            executable.as_ptr(),
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            std::ptr::null(),
+            0,
+            0,
+            std::ptr::null(),
+            directory.as_ptr(),
+            &startup,
+            &mut process,
+        );
+        if success == 0 {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
         CloseHandle(process.hThread);
         CloseHandle(process.hProcess);
     }
@@ -178,19 +248,37 @@ fn spawn_launcher(path: &Path, hidden: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn start_synapse_launcher(state: tauri::State<'_, LauncherWindows>) -> Result<String, String> {
-    if state.installing.load(Ordering::Acquire) { return Ok("installing".into()); }
-    if !crate::is_synapse_installed()? { return Ok("not_installed".into()); }
+pub async fn start_synapse_launcher(
+    state: tauri::State<'_, LauncherWindows>,
+) -> Result<String, String> {
+    if state.installing.load(Ordering::Acquire) {
+        return Ok("installing".into());
+    }
+    if !crate::is_synapse_installed()? {
+        return Ok("not_installed".into());
+    }
     if launcher_pids().is_empty() {
-        let Some(path) = find_launcher_executable() else { return Ok("not_found".into()); };
-        if let Err(error) = spawn_launcher(&path, true) { return Err(format!("Could not open Synapse Z launcher: {error}")); }
+        let Some(path) = find_launcher_executable() else {
+            return Ok("not_found".into());
+        };
+        if let Err(error) = spawn_launcher(&path, true) {
+            return Err(format!("Could not open Synapse Z launcher: {error}"));
+        }
     }
     for _ in 0..40 {
-        if state.installing.load(Ordering::Acquire) { return Ok("installing".into()); }
-        if hide_launcher_windows(&state)? { return Ok("hidden".into()); }
+        if state.installing.load(Ordering::Acquire) {
+            return Ok("installing".into());
+        }
+        if hide_launcher_windows(&state)? {
+            return Ok("hidden".into());
+        }
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
-    if !launcher_pids().is_empty() { Ok("running".into()) } else { Err("Synapse Z launcher closed before it was ready.".into()) }
+    if !launcher_pids().is_empty() {
+        Ok("running".into())
+    } else {
+        Err("Synapse Z launcher closed before it was ready.".into())
+    }
 }
 
 #[derive(Clone)]
@@ -200,8 +288,13 @@ pub(crate) struct PreviousLauncher {
 }
 
 fn find_windows() -> Search {
-    let mut search = Search { pids: launcher_pids(), windows: Vec::new() };
-    unsafe { EnumWindows(Some(find_launcher), (&mut search as *mut Search) as LPARAM); }
+    let mut search = Search {
+        pids: launcher_pids(),
+        windows: Vec::new(),
+    };
+    unsafe {
+        EnumWindows(Some(find_launcher), (&mut search as *mut Search) as LPARAM);
+    }
     search
 }
 
@@ -216,11 +309,15 @@ fn merge_tracked(state: &LauncherWindows, search: &mut Search) {
         tracked.retain(|(window, pid)| unsafe {
             let hwnd = *window as HWND;
             let mut owner = 0;
-            IsWindow(hwnd) != 0 && GetWindowThreadProcessId(hwnd, &mut owner) != 0
-                && owner == *pid && search.pids.contains(pid)
+            IsWindow(hwnd) != 0
+                && GetWindowThreadProcessId(hwnd, &mut owner) != 0
+                && owner == *pid
+                && search.pids.contains(pid)
         });
         for item in tracked.iter() {
-            if !search.windows.contains(item) { search.windows.push(*item); }
+            if !search.windows.contains(item) {
+                search.windows.push(*item);
+            }
         }
     }
 }
@@ -229,9 +326,18 @@ fn merge_tracked(state: &LauncherWindows, search: &mut Search) {
 pub fn get_synapse_launcher_state(state: tauri::State<'_, LauncherWindows>) -> String {
     let search = find_windows_with_tracked(&state);
     if search.windows.is_empty() {
-        return if search.pids.is_empty() { "not_running" } else { "running" }.into();
+        return if search.pids.is_empty() {
+            "not_running"
+        } else {
+            "running"
+        }
+        .into();
     }
-    if search.windows.iter().any(|(hwnd, _)| unsafe { IsWindowVisible(*hwnd as HWND) != 0 }) {
+    if search
+        .windows
+        .iter()
+        .any(|(hwnd, _)| unsafe { IsWindowVisible(*hwnd as HWND) != 0 })
+    {
         "visible".into()
     } else {
         "hidden".into()
@@ -241,10 +347,17 @@ pub fn get_synapse_launcher_state(state: tauri::State<'_, LauncherWindows>) -> S
 pub(crate) fn running_launcher_paths() -> Vec<PathBuf> {
     let mut sys = System::new();
     sys.refresh_processes(ProcessesToUpdate::All, true);
-    sys.processes().values().filter_map(|process| {
-        let name = process.name().to_string_lossy();
-        if is_launcher_process_name(&name) { process.exe().map(Path::to_path_buf) } else { None }
-    }).collect()
+    sys.processes()
+        .values()
+        .filter_map(|process| {
+            let name = process.name().to_string_lossy();
+            if is_launcher_process_name(&name) {
+                process.exe().map(Path::to_path_buf)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 pub(crate) fn stop_launchers(state: &LauncherWindows) -> Result<Vec<PreviousLauncher>, String> {
@@ -254,10 +367,14 @@ pub(crate) fn stop_launchers(state: &LauncherWindows) -> Result<Vec<PreviousLaun
     let mut previous = Vec::new();
     let mut pids = Vec::new();
     for (pid, process) in sys.processes() {
-        if !is_launcher_process_name(&process.name().to_string_lossy()) { continue; }
+        if !is_launcher_process_name(&process.name().to_string_lossy()) {
+            continue;
+        }
         let path = process.exe().filter(|path| path.is_file())
             .ok_or("Could not locate the running SynZ launcher. Close it manually before reinstalling.")?.to_path_buf();
-        let hidden = !search.windows.iter().any(|(hwnd, owner)| *owner == pid.as_u32() && unsafe { IsWindowVisible(*hwnd as HWND) != 0 });
+        let hidden = !search.windows.iter().any(|(hwnd, owner)| {
+            *owner == pid.as_u32() && unsafe { IsWindowVisible(*hwnd as HWND) != 0 }
+        });
         previous.push(PreviousLauncher { path, hidden });
         pids.push(*pid);
     }
@@ -272,7 +389,9 @@ pub(crate) fn stop_launchers(state: &LauncherWindows) -> Result<Vec<PreviousLaun
     for _ in 0..30 {
         sys.refresh_processes(ProcessesToUpdate::All, true);
         if pids.iter().all(|pid| sys.process(*pid).is_none()) {
-            if let Ok(mut windows) = state.windows.lock() { windows.clear(); }
+            if let Ok(mut windows) = state.windows.lock() {
+                windows.clear();
+            }
             return Ok(previous);
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
@@ -291,12 +410,22 @@ pub(crate) fn restart_previous(previous: &[PreviousLauncher]) -> Result<(), Stri
     Ok(())
 }
 
-pub(crate) fn restart_updated(state: &LauncherWindows, path: &Path, previous: &[PreviousLauncher]) -> Result<(), String> {
-    if previous.is_empty() { return Ok(()); }
-    if launcher_pids().is_empty() { spawn_launcher(path, previous.iter().all(|item| item.hidden))?; }
+pub(crate) fn restart_updated(
+    state: &LauncherWindows,
+    path: &Path,
+    previous: &[PreviousLauncher],
+) -> Result<(), String> {
+    if previous.is_empty() {
+        return Ok(());
+    }
+    if launcher_pids().is_empty() {
+        spawn_launcher(path, previous.iter().all(|item| item.hidden))?;
+    }
     if previous.iter().all(|item| item.hidden) {
         for _ in 0..20 {
-            if hide_launcher_windows(state)? { break; }
+            if hide_launcher_windows(state)? {
+                break;
+            }
             std::thread::sleep(std::time::Duration::from_millis(250));
         }
     }
@@ -305,7 +434,10 @@ pub(crate) fn restart_updated(state: &LauncherWindows, path: &Path, previous: &[
 
 #[cfg(test)]
 mod tests {
-    use super::{is_launcher_filename, is_launcher_process_name, is_launcher_window_title, hide_windows, show_windows, merge_tracked, LauncherWindows, Search};
+    use super::{
+        hide_windows, is_launcher_filename, is_launcher_process_name, is_launcher_window_title,
+        merge_tracked, show_windows, LauncherWindows, Search,
+    };
 
     #[test]
     fn recognizes_original_launcher_names_only() {
@@ -330,33 +462,71 @@ mod tests {
 
     #[test]
     fn hide_show_survives_a_replaced_launcher_window() {
-        use windows_sys::Win32::UI::WindowsAndMessaging::{CreateWindowExW, DestroyWindow, IsWindowVisible, ShowWindow, SW_SHOWNOACTIVATE, WS_OVERLAPPEDWINDOW};
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            CreateWindowExW, DestroyWindow, IsWindowVisible, ShowWindow, SW_SHOWNOACTIVATE,
+            WS_OVERLAPPEDWINDOW,
+        };
         let class: Vec<u16> = "STATIC\0".encode_utf16().collect();
         let title: Vec<u16> = "Z\0".encode_utf16().collect();
-        let create = || unsafe { CreateWindowExW(0, class.as_ptr(), title.as_ptr(), WS_OVERLAPPEDWINDOW, -30000, -30000, 100, 100, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null()) };
+        let create = || unsafe {
+            CreateWindowExW(
+                0,
+                class.as_ptr(),
+                title.as_ptr(),
+                WS_OVERLAPPEDWINDOW,
+                -30000,
+                -30000,
+                100,
+                100,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null(),
+            )
+        };
         let state = LauncherWindows::default();
         let pid = std::process::id();
         let first = create();
         assert!(!first.is_null());
-        unsafe { ShowWindow(first, SW_SHOWNOACTIVATE); }
-        let search = || Search { pids: vec![pid], windows: vec![(first as isize, pid)] };
+        unsafe {
+            ShowWindow(first, SW_SHOWNOACTIVATE);
+        }
+        let search = || Search {
+            pids: vec![pid],
+            windows: vec![(first as isize, pid)],
+        };
         assert!(hide_windows(&state, search()).unwrap());
         assert_eq!(unsafe { IsWindowVisible(first) }, 0);
         assert!(show_windows(&state, search()));
         assert_ne!(unsafe { IsWindowVisible(first) }, 0);
         assert!(hide_windows(&state, search()).unwrap());
-        unsafe { DestroyWindow(first); }
+        unsafe {
+            DestroyWindow(first);
+        }
 
         let second = create();
         assert!(!second.is_null());
-        unsafe { ShowWindow(second, SW_SHOWNOACTIVATE); }
-        let mut fresh = Search { pids: vec![pid], windows: vec![(second as isize, pid)] };
+        unsafe {
+            ShowWindow(second, SW_SHOWNOACTIVATE);
+        }
+        let mut fresh = Search {
+            pids: vec![pid],
+            windows: vec![(second as isize, pid)],
+        };
         merge_tracked(&state, &mut fresh);
         assert!(hide_windows(&state, fresh).unwrap());
         assert_eq!(unsafe { IsWindowVisible(second) }, 0);
-        assert!(show_windows(&state, Search { pids: vec![pid], windows: vec![(second as isize, pid)] }));
+        assert!(show_windows(
+            &state,
+            Search {
+                pids: vec![pid],
+                windows: vec![(second as isize, pid)]
+            }
+        ));
         assert_ne!(unsafe { IsWindowVisible(second) }, 0);
-        unsafe { DestroyWindow(second); }
+        unsafe {
+            DestroyWindow(second);
+        }
     }
 }
 
@@ -380,51 +550,112 @@ pub fn restore_launcher(state: &LauncherWindows) {
 }
 
 #[tauri::command]
-pub async fn show_synapse_launcher(app: tauri::AppHandle, state: tauri::State<'_, LauncherWindows>) -> Result<bool, String> {
-    if helper_show(&state) { return Ok(true); }
-    if launcher_pids().is_empty() { return Ok(false); }
-    if !request_elevated_window_action(&app, "show").await? { return Ok(false); }
+pub async fn show_synapse_launcher(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, LauncherWindows>,
+) -> Result<bool, String> {
+    if helper_show(&state) {
+        return Ok(true);
+    }
+    if launcher_pids().is_empty() {
+        return Ok(false);
+    }
+    if !request_elevated_window_action(&app, "show").await? {
+        return Ok(false);
+    }
     let search = find_windows_with_tracked(&state);
     if let Ok(mut tracked) = state.windows.lock() {
-        tracked.retain(|(window, _)| unsafe { IsWindow(*window as HWND) != 0 && IsWindowVisible(*window as HWND) == 0 });
+        tracked.retain(|(window, _)| unsafe {
+            IsWindow(*window as HWND) != 0 && IsWindowVisible(*window as HWND) == 0
+        });
     }
-    let shown = !search.windows.is_empty() && search.windows.iter().all(|(window, _)| unsafe { IsWindowVisible(*window as HWND) != 0 });
-    if shown { if let Some((window, _)) = search.windows.first() { unsafe { SetForegroundWindow(*window as HWND); } } }
+    let shown = !search.windows.is_empty()
+        && search
+            .windows
+            .iter()
+            .all(|(window, _)| unsafe { IsWindowVisible(*window as HWND) != 0 });
+    if shown {
+        if let Some((window, _)) = search.windows.first() {
+            unsafe {
+                SetForegroundWindow(*window as HWND);
+            }
+        }
+    }
     Ok(shown)
 }
 
 fn show_windows(state: &LauncherWindows, search: Search) -> bool {
     for (window, _) in &search.windows {
         if unsafe { IsWindowVisible(*window as HWND) == 0 } {
-            unsafe { ShowWindow(*window as HWND, SW_SHOWNA); }
+            unsafe {
+                ShowWindow(*window as HWND, SW_SHOWNA);
+            }
         }
     }
     if let Ok(mut windows) = state.windows.lock() {
         // Keep windows that Windows refused to show so the next click can retry.
-        windows.retain(|(window, _)| unsafe { IsWindow(*window as HWND) != 0 && IsWindowVisible(*window as HWND) == 0 });
+        windows.retain(|(window, _)| unsafe {
+            IsWindow(*window as HWND) != 0 && IsWindowVisible(*window as HWND) == 0
+        });
     }
-    !search.windows.is_empty() && search.windows.iter().all(|(window, _)| unsafe { IsWindowVisible(*window as HWND) != 0 })
+    !search.windows.is_empty()
+        && search
+            .windows
+            .iter()
+            .all(|(window, _)| unsafe { IsWindowVisible(*window as HWND) != 0 })
 }
 
-async fn request_elevated_window_action(app: &tauri::AppHandle, action: &'static str) -> Result<bool, String> {
-    let owner = app.get_webview_window("main").and_then(|window| window.hwnd().ok())
-        .map(|hwnd| hwnd.0 as isize).unwrap_or(0);
-    tauri::async_runtime::spawn_blocking(move || run_elevated_window_action(owner, action)).await
+#[cfg(synvolt_standard)]
+async fn request_elevated_window_action(
+    _app: &tauri::AppHandle,
+    _action: &'static str,
+) -> Result<bool, String> {
+    Err("SynVolt could not control the SynZ window. If SynZ is running as administrator, open it without administrator access or use the administrator version of SynVolt.".into())
+}
+
+#[cfg(not(synvolt_standard))]
+async fn request_elevated_window_action(
+    app: &tauri::AppHandle,
+    action: &'static str,
+) -> Result<bool, String> {
+    let owner = app
+        .get_webview_window("main")
+        .and_then(|window| window.hwnd().ok())
+        .map(|hwnd| hwnd.0 as isize)
+        .unwrap_or(0);
+    tauri::async_runtime::spawn_blocking(move || run_elevated_window_action(owner, action))
+        .await
         .map_err(|error| format!("Could not request permission to control SynZ: {error}"))?
 }
 
+#[cfg(not(synvolt_standard))]
 fn run_elevated_window_action(owner: isize, action: &str) -> Result<bool, String> {
     use windows_sys::Win32::Foundation::{GetLastError, ERROR_CANCELLED, WAIT_OBJECT_0};
-    use windows_sys::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
-    use windows_sys::Win32::System::Threading::{GetExitCodeProcess, WaitForSingleObject, INFINITE};
-    use windows_sys::Win32::UI::Shell::{ShellExecuteExW, SHELLEXECUTEINFOW, SEE_MASK_FLAG_NO_UI, SEE_MASK_NOASYNC, SEE_MASK_NOCLOSEPROCESS};
-    if !matches!(action, "hide" | "show") { return Err("Invalid SynZ window action.".into()); }
+    use windows_sys::Win32::System::Com::{
+        CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE,
+    };
+    use windows_sys::Win32::System::Threading::{
+        GetExitCodeProcess, WaitForSingleObject, INFINITE,
+    };
+    use windows_sys::Win32::UI::Shell::{
+        ShellExecuteExW, SEE_MASK_FLAG_NO_UI, SEE_MASK_NOASYNC, SEE_MASK_NOCLOSEPROCESS,
+        SHELLEXECUTEINFOW,
+    };
+    if !matches!(action, "hide" | "show") {
+        return Err("Invalid SynZ window action.".into());
+    }
     let path = std::env::current_exe().map_err(|_| "Could not find SynVolt.")?;
     let executable: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
     let verb: Vec<u16> = "runas".encode_utf16().chain(Some(0)).collect();
-    let parameters: Vec<u16> = format!("--synvolt-window-helper {action}").encode_utf16().chain(Some(0)).collect();
+    let parameters: Vec<u16> = format!("--synvolt-window-helper {action}")
+        .encode_utf16()
+        .chain(Some(0))
+        .collect();
     unsafe {
-        let initialized = CoInitializeEx(std::ptr::null(), (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32) >= 0;
+        let initialized = CoInitializeEx(
+            std::ptr::null(),
+            (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32,
+        ) >= 0;
         let mut info: SHELLEXECUTEINFOW = std::mem::zeroed();
         info.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as u32;
         info.fMask = SEE_MASK_NOASYNC | SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
@@ -435,15 +666,27 @@ fn run_elevated_window_action(owner: isize, action: &str) -> Result<bool, String
         info.nShow = SW_HIDE;
         if ShellExecuteExW(&mut info) == 0 {
             let error = GetLastError();
-            if initialized { CoUninitialize(); }
-            if error == ERROR_CANCELLED { return Err("Administrator permission was cancelled. SynZ is running with administrator rights; allow the request to control its window.".into()); }
-            return Err(format!("Windows could not open the SynZ window helper: {}", std::io::Error::from_raw_os_error(error as i32)));
+            if initialized {
+                CoUninitialize();
+            }
+            if error == ERROR_CANCELLED {
+                return Err("Administrator permission was cancelled. SynZ is running with administrator rights; allow the request to control its window.".into());
+            }
+            return Err(format!(
+                "Windows could not open the SynZ window helper: {}",
+                std::io::Error::from_raw_os_error(error as i32)
+            ));
         }
-        if initialized { CoUninitialize(); }
-        if info.hProcess.is_null() { return Err("Windows did not return the SynZ window helper process.".into()); }
+        if initialized {
+            CoUninitialize();
+        }
+        if info.hProcess.is_null() {
+            return Err("Windows did not return the SynZ window helper process.".into());
+        }
         let waited = WaitForSingleObject(info.hProcess, INFINITE) == WAIT_OBJECT_0;
         let mut exit_code = 1;
-        let success = waited && GetExitCodeProcess(info.hProcess, &mut exit_code) != 0 && exit_code == 0;
+        let success =
+            waited && GetExitCodeProcess(info.hProcess, &mut exit_code) != 0 && exit_code == 0;
         CloseHandle(info.hProcess);
         Ok(success)
     }

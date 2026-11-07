@@ -52,7 +52,9 @@ function App() {
   useEffect(() => {
     if (view === 'dashboard') {
       loadQuickExecuteSettings();
-      void check({ timeout: 10000 }).then(setUpdate).catch(() => {});
+      if (import.meta.env.VITE_SYNVOLT_STANDARD !== '1') {
+        void check({ timeout: 10000 }).then(setUpdate).catch(() => {});
+      }
     }
   }, [view]);
 

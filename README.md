@@ -10,6 +10,19 @@ The original Synapse Z installer is not included. To build the current installer
 
 The optional ScriptBlox and RScripts proxy projects are included in `synvolt-scriptblox` and `synz-rscripts`. The RScripts API key belongs in a server-side secret, never in this repository. Proxy and updater endpoints in the app configuration point to the current maintainer's services and may need to be configured for your deployment.
 
+## Windows builds
+
+The default build requests administrator access when it opens. To create the standard-permission edition instead, set both build variables in PowerShell before running Tauri:
+
+```powershell
+$env:SYNVOLT_STANDARD_BUILD = '1'
+$env:VITE_SYNVOLT_STANDARD = '1'
+npm run tauri -- build --bundles nsis --config src-tauri/tauri.standard.conf.json
+Remove-Item Env:SYNVOLT_STANDARD_BUILD, Env:VITE_SYNVOLT_STANDARD
+```
+
+Both editions use the same installation and data. Automatic update checks are disabled in the standard edition, so it won't switch to the administrator edition. If SynZ runs as administrator, Windows may prevent the standard edition from hiding or showing its window.
+
 ## Feedback
 
 SynVolt is still new and may contain bugs. Report issues on GitHub or DM `doozyed_d` on Discord.
