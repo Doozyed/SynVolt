@@ -1,0 +1,26 @@
+.explorer-sidebar { color: var(--text-main); background: var(--bg-main); font: 12px 'Inter', sans-serif; }
+.explorer-sidebar button { font-family: inherit; }
+.explorer-bar, .explorer-section { display: flex; align-items: center; gap: 3px; padding: 0 9px; }
+.explorer-bar { min-height: 38px; border-bottom: 1px solid var(--border); }
+.explorer-bar strong { margin-right: auto; font-size: 12px; }
+.explorer-section { min-height: 33px; border-top: 1px solid var(--border); }
+.explorer-bar button, .explorer-section button, .explorer-entry {
+  display: flex; align-items: center; gap: 5px; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 4px; font-size: 12px;
+}
+.explorer-bar svg, .explorer-section svg { width: 12px; height: 12px; }
+.explorer-section .explorer-label { flex: 1; font-weight: 600; }
+.explorer-sidebar button:hover, .explorer-entry[aria-pressed="true"] { background: var(--bg-surface); }
+.explorer-entry { width: 100%; min-height: 25px; text-align: left; }
+.explorer-entry svg { color: var(--text-muted); flex-shrink: 0; }
+.explorer-create { margin: 4px 8px; width: calc(100% - 16px); background: var(--bg-surface); color: var(--text-main); border: 1px solid var(--border); padding: 5px; }
+.explorer-message { padding: 5px 15px; color: var(--text-muted); overflow-wrap: anywhere; }
+.explorer-menu { position: absolute; top: 65px; right: 6px; display: grid; z-index: 11; background: var(--bg-surface); border: 1px solid var(--border); padding: 4px; border-radius: 4px; }
+.explorer-menu button { padding: 5px 9px; }
+.explorer-tools { flex: 0 0 32px; display: flex; align-items: center; gap: 4px; padding: 0 8px; border-bottom: 1px solid var(--border); }
+.explorer-tools button { display: grid; place-items: center; width: 25px; height: 24px; background: none; color: var(--text-muted); border: 0; border-radius: 4px; cursor: pointer; }
+.explorer-tools button:hover { color: var(--text-main); }
+.explorer-entry { color: var(--text-main); }
+.explorer-entry[data-offline="true"] { color: var(--text-muted); }
+.explorer-entry[data-offline="true"] svg { color: inherit; }
+.explorer-context { position: fixed; display: grid; min-width: 140px; padding: 4px; z-index: 10000; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 6px; }
+.explorer-context button { text-align: left; border: 0; border-radius: 3px; padding: 5px 8px; font-size: 11px; background: transparent; color: var(--text-main); cursor: pointer; }

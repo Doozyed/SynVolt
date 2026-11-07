@@ -1,0 +1,42 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Build output, local secrets, and third-party binaries
+**/node_modules/
+**/dist/
+**/target/
+**/.cloudflare/
+**/.wrangler/
+**/.env
+**/.env.*
+**/.dev.vars*
+**/*.key
+**/*.p12
+**/*.pfx
+**/*.pem
+src-tauri/resources/*.exe
+src-tauri/binaries/*.exe
+src-tauri/gen/
+synvolt-updates/

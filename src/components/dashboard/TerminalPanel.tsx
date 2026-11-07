@@ -1,0 +1,317 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { colors } from '../../config/theme';
+import { IconButton } from '../shared/IconButton';
+import { Search, Filter, Trash2, Square, ChevronUp, X } from 'lucide-react';
+import {
+  getConsoleLogs,
+  getConsoleAccounts,
+  clearConsoleLogs,
+  subscribeToConsoleLogs,
+  ConsoleLogEntry,
+} from '../../stores/consoleStore';
+
+export type LogType = 'info' | 'success' | 'warning' | 'error' | 'status';
+
+interface TerminalPanelProps {
+  isOpen: boolean;
+  onToggle: () => void;
+  height: number;
+  onHeightChange: (height: number) => void;
+  position: 'top' | 'bottom';
+  order?: number;
+  activeFileId?: string;
+}
+
+const LOG_TYPE_COLORS: Record<LogType, string> = {
+  info: colors.textMuted,
+  success: colors.success,
+  warning: '#FFA726',
+  error: colors.error,
+  status: colors.primary,
+};
+
+const FILTER_OPTIONS: { value: LogType | 'all'; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'info', label: 'Info' },
+  { value: 'success', label: 'Success' },
+  { value: 'warning', label: 'Warning' },
+  { value: 'error', label: 'Error' },
+  { value: 'status', label: 'Status' },
+];
+
+export function TerminalPanel({ isOpen, onToggle, height, onHeightChange, position, order }: TerminalPanelProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [filterType, setFilterType] = useState<LogType | 'all'>('all');
+  const [showFilter, setShowFilter] = useState(false);
+  const [logs, setLogs] = useState<ConsoleLogEntry[]>([]);
+  const [accounts, setAccounts] = useState<string[]>(getConsoleAccounts);
+  const [selectedAccount, setSelectedAccount] = useState('');
+  const [isResizing, setIsResizing] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const startY = useRef(0);
+  const startHeight = useRef(0);
+
+  useEffect(() => {
+    const updateLogs = () => {
+      setLogs(getConsoleLogs());
+      setAccounts(getConsoleAccounts());
+    };
+
+    updateLogs();
+    return subscribeToConsoleLogs(updateLogs);
+  }, []);
+
+  useEffect(() => {
+    if (accounts.length && (!selectedAccount || !accounts.includes(selectedAccount))) setSelectedAccount(accounts[0]);
+    if (!accounts.length && selectedAccount) setSelectedAccount('');
+  }, [accounts, selectedAccount]);
+
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [logs]);
+
+  const handleClear = () => {
+    clearConsoleLogs();
+  };
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing) return;
+      e.preventDefault();
+      const delta = position === 'bottom'
+        ? startY.current - e.clientY
+        : e.clientY - startY.current;
+      const newHeight = startHeight.current + delta;
+      const clampedHeight = Math.max(80, Math.min(500, newHeight));
+      onHeightChange(clampedHeight);
+    },
+    [isResizing, onHeightChange, position]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    startY.current = e.clientY;
+    startHeight.current = height;
+    setIsResizing(true);
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const filteredLogs = logs.filter((log) => {
+    if (selectedAccount && log.username && log.username !== selectedAccount) return false;
+    if (filterType !== 'all' && log.level !== filterType) return false;
+    if (searchQuery && !log.message.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        height: isOpen ? height : 0,
+        visibility: isOpen ? 'visible' : 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--bg-panel)',
+        borderTop: position === 'bottom' && isOpen ? '1px solid var(--border-subtle)' : 'none',
+        borderBottom: position === 'top' && isOpen ? '1px solid var(--border-subtle)' : 'none',
+        order,
+        overflow: 'hidden',
+        transition: isResizing ? 'none' : 'height 240ms cubic-bezier(.22,1,.36,1), visibility 0s linear ' + (isOpen ? '0s' : '240ms'),
+      }}
+    >
+      <div
+        onMouseDown={handleResizeStart}
+        style={{
+          height: 32,
+          cursor: 'ns-resize',
+          background: 'transparent',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 12px',
+          borderBottom: position === 'bottom' ? '1px solid var(--border-subtle)' : 'none',
+          borderTop: position === 'top' ? '1px solid var(--border-subtle)' : 'none',
+          flexShrink: 0,
+          position: 'relative',
+          order: position === 'top' ? 1 : 0,
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            [position === 'bottom' ? 'top' : 'bottom']: 0,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: isResizing ? 60 : 40,
+            height: 3,
+            background: isResizing ? '#4a4a55' : 'var(--border)',
+            boxShadow: isResizing ? 'inset 0 1px 3px rgba(0,0,0,0.4)' : 'none',
+            borderRadius: position === 'bottom' ? '0 0 2px 2px' : '2px 2px 0 0',
+            transition: isResizing ? 'none' : 'all 0.15s ease',
+          }}
+        />
+
+        <div data-tour="console" style={{ display: 'flex', alignItems: 'center', gap: 8 }} onMouseDown={(event) => event.stopPropagation()}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: colors.textMuted, letterSpacing: '0.05em' }}>CONSOLE</span>
+          {accounts.length > 0 ? <div className="themed-select console-account"><select aria-label="Console account" value={selectedAccount} onChange={(event) => setSelectedAccount(event.target.value)}>
+            {accounts.map((account) => <option key={account} value={account}>{account}</option>)}
+          </select></div> : <span className="console-waiting">Waiting for Roblox account</span>}
+        </div>
+
+        <div className="console-controls" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="console-search"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '5px 10px',
+              background: searchFocused ? 'var(--bg-surface)' : '#0a0a0e',
+              border: `1px solid ${searchFocused ? colors.primary : 'var(--border-subtle)'}`,
+              borderRadius: 5,
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Search size={13} color={colors.textMuted} />
+            <input className="console-search-input"
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              style={{
+                width: 110,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                fontSize: 12,
+                color: colors.textWhite,
+              }}
+            />
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <IconButton tooltip="Filter" onClick={() => setShowFilter(!showFilter)} active={showFilter}>
+              <Filter size={14} />
+            </IconButton>
+            {showFilter && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: 4,
+                  padding: 4,
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 8,
+                  zIndex: 100,
+                  minWidth: 100,
+                }}
+              >
+                {FILTER_OPTIONS.map((option) => (
+                  <div
+                    key={option.value}
+                    onClick={() => {
+                      setFilterType(option.value);
+                      setShowFilter(false);
+                    }}
+                    style={{
+                      padding: '6px 10px',
+                      fontSize: 12,
+                      color: filterType === option.value ? colors.primary : colors.textWhite,
+                      cursor: 'pointer',
+                      borderRadius: 4,
+                      background: filterType === option.value ? `${colors.primary}15` : 'transparent',
+                    }}
+                  >
+                    {option.label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <IconButton tooltip="Clear" onClick={handleClear}>
+            <Trash2 size={14} />
+          </IconButton>
+
+          <IconButton tooltip="Stop">
+            <Square size={14} />
+          </IconButton>
+
+          <IconButton tooltip="Minimize" onClick={onToggle}>
+            <ChevronUp size={14} />
+          </IconButton>
+
+          <IconButton tooltip="Close" onClick={onToggle}>
+            <X size={14} />
+          </IconButton>
+        </div>
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: 12,
+          fontFamily: 'monospace',
+          fontSize: 12,
+          order: position === 'top' ? 0 : 1,
+        }}
+      >
+        {filteredLogs.length === 0 ? (
+          <div style={{ color: colors.textMuted }}>
+            <div style={{ fontSize: 13, marginBottom: 4 }}>No console output yet</div>
+            <div style={{ fontSize: 11, opacity: 0.6 }}>Redirected print, warn, and runtime errors will appear here</div>
+          </div>
+        ) : (
+          <>
+            {filteredLogs.map((log) => (
+              <div
+                key={log.id}
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  marginBottom: 2,
+                  padding: '3px 6px',
+                  color: LOG_TYPE_COLORS[log.level],
+                  alignItems: 'flex-start',
+                  borderRadius: 4,
+                }}
+              >
+                <span style={{ opacity: 0.4, flexShrink: 0 }}>
+                  {log.level === 'error' ? 'x' : log.level === 'warning' ? '!' : '>'}
+                </span>
+                <span style={{ flex: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{log.message}</span>
+              </div>
+            ))}
+            <div ref={logsEndRef} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
