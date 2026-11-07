@@ -22,6 +22,16 @@ export function FirstRunGuide() {
   const [viewport, setViewport] = useState({ width: window.innerWidth, height: window.innerHeight });
   const dialog = useRef<HTMLElement>(null);
 
+  useEffect(() => {
+    const restart = () => {
+      setTarget(null);
+      setPage(0);
+      setVisible(true);
+    };
+    window.addEventListener('synvolt-guide-restart', restart);
+    return () => window.removeEventListener('synvolt-guide-restart', restart);
+  }, []);
+
   useEffect(() => { if (visible) dialog.current?.focus(); }, [visible]);
   useEffect(() => {
     if (!visible || page !== -1) return;
