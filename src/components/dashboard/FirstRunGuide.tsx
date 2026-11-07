@@ -32,12 +32,15 @@ export function FirstRunGuide() {
   }, [visible, page, started]);
   useEffect(() => {
     if (!visible || page < 0) return;
-    setTarget(null);
     window.dispatchEvent(new CustomEvent('synvolt-guide-navigate', { detail: steps[page].destination }));
+    const deadline = Date.now() + 1800;
     const update = () => {
       setViewport({ width: window.innerWidth, height: window.innerHeight });
       const rect = document.querySelector(steps[page].target)?.getBoundingClientRect();
-      if (!rect || rect.width === 0 || rect.height === 0) { setTarget(null); return; }
+      if (!rect || rect.width === 0 || rect.height === 0) {
+        if (Date.now() >= deadline) setTarget(null);
+        return;
+      }
       setTarget(old => old && old.left === rect.left && old.top === rect.top && old.width === rect.width && old.height === rect.height ? old : { left: rect.left, top: rect.top, width: rect.width, height: rect.height });
     };
     update();
