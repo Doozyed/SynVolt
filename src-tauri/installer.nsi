@@ -387,7 +387,8 @@ Var AppStartMenuFolder
 !insertmacro MUI_PAGE_FINISH
 
 Function RunMainBinary
-  nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
+  ; The application requests elevation in its own manifest.
+  ExecShell "open" "$INSTDIR\${MAINBINARYNAME}.exe"
 FunctionEnd
 
 ; Uninstaller Pages
@@ -722,7 +723,7 @@ Function .onInstSuccess
     ${GetOptions} $CMDLINE "/R" $R0
     ${IfNot} ${Errors}
       ${GetOptions} $CMDLINE "/ARGS" $R0
-      nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" "$R0"
+      ExecShell "open" "$INSTDIR\${MAINBINARYNAME}.exe" "$R0"
     ${EndIf}
   ${EndIf}
 FunctionEnd

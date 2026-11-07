@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { currentMonitor, getCurrentWindow, LogicalSize, PhysicalPosition } from '@tauri-apps/api/window';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { FirstRunGuide } from './components/dashboard/FirstRunGuide';
+import { PatchingOverlay } from './components/dashboard/PatchingOverlay';
 import { loadQuickExecuteSettings } from './stores/quickExecuteStore';
 
 import { check, type Update } from '@tauri-apps/plugin-updater';
@@ -59,6 +60,7 @@ function App() {
     return <>
       <Dashboard />
       <FirstRunGuide />
+      <PatchingOverlay />
       {update && <div className="update-notice" role="status">
         <strong>SynVolt {update.version} is available</strong>
         <span>{updateError || 'Your scripts and settings will be kept.'}</span>

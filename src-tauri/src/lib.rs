@@ -8,6 +8,20 @@ mod explorer_bridge;
 mod dma_bridge;
 mod console_bridge;
 
+/// Handles the narrowly scoped elevated helper before the desktop app starts.
+pub fn run_launcher_window_helper() -> Option<i32> {
+    let args: Vec<_> = std::env::args_os().collect();
+    if args.get(1).map(|arg| arg == "--synvolt-window-helper") != Some(true) { return None; }
+    if args.len() != 3 { return Some(2); }
+    let state = launcher_window::LauncherWindows::default();
+    let success = if args[2] == "hide" {
+        launcher_window::helper_hide(&state)
+    } else if args[2] == "show" {
+        launcher_window::helper_show(&state)
+    } else { false };
+    Some(if success { 0 } else { 1 })
+}
+
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::windows::process::CommandExt;

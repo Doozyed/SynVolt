@@ -198,28 +198,39 @@ export function WelcomePage({ onToggleTerminal, onOpenSettings, onOpenFile, onNe
   const [keybinds, setKeybinds] = useState<KeybindsSettings>(getKeybinds());
   const [savingInstaller, setSavingInstaller] = useState(false);
   const [installerMessage, setInstallerMessage] = useState('');
+  const [installerOpened, setInstallerOpened] = useState(false);
 
   useEffect(() => {
     let active = true;
     let unlisten: (() => void) | undefined;
     listen<string>('synz-reinstall-finished', event => {
-      if (active) setInstallerMessage(event.payload);
+      if (active) { setInstallerMessage(event.payload); setInstallerOpened(false); }
     }).then(stop => { if (active) unlisten = stop; else stop(); }).catch(() => {});
     return () => { active = false; unlisten?.(); };
   }, []);
 
   const saveInstaller = async () => {
     setSavingInstaller(true);
+    setInstallerOpened(false);
     setInstallerMessage('');
     try {
       const result = await invoke<{ path: string; launched: boolean; cancelled: boolean }>('run_synz_installer');
       const filename = result.path.split(/[\\/]/).pop();
-      setInstallerMessage(result.launched ? `Installer opened: ${filename}` : `Administrator request cancelled. Saved in Downloads: ${filename}`);
+      setInstallerOpened(result.launched);
+      setInstallerMessage(result.launched ? 'Click Install in SynZ, then choose Hide while patching.' : `Administrator request cancelled. Saved in Downloads: ${filename}`);
     } catch (error) {
       setInstallerMessage(String(error));
     } finally {
       setSavingInstaller(false);
     }
+  };
+
+  const hideWhilePatching = async () => {
+    try {
+      const hidden = await invoke<boolean>('hide_synapse_launcher');
+      if (!hidden) { setInstallerMessage('Could not hide SynZ. Keep its window open and try again.'); return; }
+      window.dispatchEvent(new Event('synvolt-manual-patching-started'));
+    } catch { setInstallerMessage('Could not hide SynZ. Keep its window open and try again.'); }
   };
 
   useEffect(() => {
@@ -359,6 +370,7 @@ export function WelcomePage({ onToggleTerminal, onOpenSettings, onOpenFile, onNe
           <button type="button" disabled={savingInstaller} onClick={saveInstaller} className="synz-installer-button">
             <Download size={14} />{savingInstaller ? 'Opening…' : synapseInstalled ? 'Reinstall Synapse Z' : 'Install Synapse Z'}
           </button>
+          {installerOpened && <button type="button" onClick={hideWhilePatching} className="synz-installer-button">Hide while patching</button>}
         </div>
 
         <div className="welcome-sections" style={{ display: 'grid', gap: 24, marginBottom: 40 }}>

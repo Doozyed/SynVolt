@@ -342,3 +342,18 @@ a {
 .onboarding-bubble .onboarding-actions { margin-top: 16px; }
 @media (prefers-reduced-motion: no-preference) { .onboarding-step-content { animation: onboarding-appear 220ms ease-out both; } }
 @media (prefers-reduced-motion: reduce) { .onboarding-spotlight, .onboarding-bubble { transition: none; } }
+
+.patching-overlay { position: fixed; inset: 0; z-index: 40000; display: grid; place-items: center; padding: 24px; background: rgba(7,7,12,.66); backdrop-filter: blur(8px); }
+.patching-card { width: min(100%,360px); box-sizing: border-box; text-align: center; padding: 32px 28px 25px; border: 1px solid var(--border); border-radius: 16px; color: var(--text-main); background: var(--bg-panel); box-shadow: 0 24px 80px #0008; }
+.patching-emblem { width: 70px; height: 70px; margin: 0 auto 23px; display: grid; place-items: center; position: relative; }
+.patching-emblem img { width: 31px; height: 31px; object-fit: contain; }
+.patching-ring { position: absolute; inset: 0; border: 2px solid var(--border); border-top-color: var(--text-main); border-radius: 50%; animation: patching-spin 1.2s linear infinite; }
+.patching-label { font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: .14em; }
+.patching-card h1 { font-size: 21px; letter-spacing: -.02em; margin: 9px 0; }
+.patching-card p { color: var(--text-muted); font-size: 12px; line-height: 1.6; margin: 0; }
+.patching-dots span { animation: patching-dot 1.2s infinite ease-in-out; } .patching-dots span:nth-child(2) { animation-delay: .15s; } .patching-dots span:nth-child(3) { animation-delay: .3s; }
+.patching-bar { height: 3px; overflow: hidden; background: var(--border); border-radius: 10px; margin: 24px 0 18px; } .patching-bar div { height: 100%; width: 35%; background: var(--text-main); border-radius: inherit; animation: patching-progress 1.7s ease-in-out infinite; }
+.patching-show { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 7px; padding: 7px 11px; background: var(--bg-raised); color: var(--text-main); cursor: pointer; font: inherit; font-size: 11px; } .patching-show:hover { background: var(--bg-surface); }
+.patching-card .patching-error { margin: -6px 0 12px; }
+@keyframes patching-spin { to { transform: rotate(360deg); } } @keyframes patching-dot { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } } @keyframes patching-progress { from { transform: translateX(-110%); } to { transform: translateX(290%); } }
+@media (prefers-reduced-motion: reduce) { .patching-ring, .patching-dots span, .patching-bar div { animation: none; } .patching-dots span { opacity: 1; } }

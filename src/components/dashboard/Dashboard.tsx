@@ -271,6 +271,9 @@ export function Dashboard() {
   const fullscreenTransition = useRef(false);
   const store = useSyncExternalStore(subscribe, getStore);
   const [synapseHidden, setSynapseHidden] = useState(false);
+  const [synapseChanging, setSynapseChanging] = useState(false);
+  const synapseChangeInFlight = useRef(false);
+  const synapseStateVersion = useRef(0);
   const [synapseInstalled, setSynapseInstalled] = useState<boolean | null>(null);
   const [launcherStatus, setLauncherStatus] = useState<'checking' | 'hidden' | 'running' | 'installing' | 'not_installed' | 'not_found' | 'failed'>('checking');
   const launcherStart = useRef<Promise<string> | null>(null);
@@ -337,6 +340,10 @@ export function Dashboard() {
   }, []);
 
   const toggleSynapseWindow = useCallback(async () => {
+    if (synapseChangeInFlight.current) return;
+    synapseChangeInFlight.current = true;
+    synapseStateVersion.current++;
+    setSynapseChanging(true);
     try {
       const current = await invoke<string>('get_synapse_launcher_state');
       if (current === 'hidden') {
@@ -350,15 +357,21 @@ export function Dashboard() {
       }
     } catch (error) {
       window.alert(String(error));
+    } finally {
+      synapseStateVersion.current++;
+      synapseChangeInFlight.current = false;
+      setSynapseChanging(false);
     }
   }, []);
 
   useEffect(() => {
     let active = true;
     const refresh = async () => {
+      if (synapseChangeInFlight.current) return;
+      const version = synapseStateVersion.current;
       try {
         const current = await invoke<string>('get_synapse_launcher_state');
-        if (active) setSynapseHidden(current === 'hidden');
+        if (active && !synapseChangeInFlight.current && version === synapseStateVersion.current) setSynapseHidden(current === 'hidden');
       } catch { /* The launcher can disappear while it is restarting. */ }
     };
     void refresh();
@@ -1204,8 +1217,8 @@ export function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <button onClick={toggleSynapseWindow} title={synapseHidden ? 'Show Synapse Z launcher' : 'Hide Synapse Z launcher'}
-            style={{ background: 'transparent', border: 'none', color: colors.textMuted, fontSize: 11, cursor: 'pointer', padding: '6px 8px' }}>
+          <button onClick={toggleSynapseWindow} disabled={synapseChanging} title={synapseHidden ? 'Show Synapse Z launcher' : 'Hide Synapse Z launcher'}
+            style={{ background: 'transparent', border: 'none', color: colors.textMuted, fontSize: 11, cursor: synapseChanging ? 'default' : 'pointer', padding: '6px 8px' }}>
             {synapseHidden ? 'Show Synapse Z' : 'Hide Synapse Z'}
           </button>
           <WindowButton onClick={handleMinimize} tooltip="Minimize">
